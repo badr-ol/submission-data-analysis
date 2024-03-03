@@ -26,8 +26,8 @@ def create_rentals_per_weather(df):
     return rentals_per_weather
 
 # Load data
-days_df = pd.read_csv("day_cleaned.csv")
-hours_df = pd.read_csv("hour_cleaned.csv")
+days_df = pd.read_csv("https://raw.githubusercontent.com/badr-ol/submission-data-analysis/main/dashboard/day_cleaned.csv")
+hours_df = pd.read_csv("https://raw.githubusercontent.com/badr-ol/submission-data-analysis/main/dashboard/hour_cleaned.csv")
 
 # Mengurutkan nilai berdasarkan tanggal dan mereset index
 datetime_columns = ["dteday"]
@@ -45,7 +45,7 @@ for column in datetime_columns:
 # Membuat sidebar
 with st.sidebar:
     # Menambahkan logo perusahaan
-    st.image("logo.png")
+    st.image("https://github.com/badr-ol/submission-data-analysis/blob/main/dashboard/logo.png")
     
     # Mengambil start_date & end_date dari date_input
     start_date, end_date = st.date_input(
