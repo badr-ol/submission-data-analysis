@@ -2,212 +2,157 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
-import matplotlib.ticker as ticker
+
+sns.set_theme(style='dark')
+
+def create_rentals_per_month(df):
+    rentals_per_month = df.groupby(by=['year', 'month'], observed=False)['total_count'].sum().reset_index()
+    
+    months_order = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
+    rentals_per_month['month'] = pd.Categorical(rentals_per_month['month'], categories=months_order, ordered=True)
+    
+    return rentals_per_month
+
+def create_rentals_by_season(df): 
+    rentals_per_season = df.groupby(by=['year', 'season'], observed=False)['total_count'].sum().reset_index()
+    return rentals_per_season
+
+def create_rentals_by_hour(df): 
+    rentals_by_hour = df.groupby(by='hour_group', observed=False)['total_count'].sum()
+    return rentals_by_hour
+
+def create_rentals_per_weather(df):
+    rentals_per_weather = df.groupby(by='weather_situation', observed=False)['total_count'].sum()
+    return rentals_per_weather
 
 # Load data
-all_df = pd.read_csv("all_data.csv")
+days_df = pd.read_csv("day_cleaned.csv")
+hours_df = pd.read_csv("hour_cleaned.csv")
+
+# Mengurutkan nilai berdasarkan tanggal dan mereset index
+datetime_columns = ["dteday"]
+days_df.sort_values(by="dteday", inplace=True)
+days_df.reset_index(inplace=True)   
+
+hours_df.sort_values(by="dteday", inplace=True)
+hours_df.reset_index(inplace=True)
 
 # Data preprocessing
-datetime_columns = ["dteday"]
 for column in datetime_columns:
-    all_df[column] = pd.to_datetime(all_df[column])
+    days_df[column] = pd.to_datetime(days_df[column])
+    hours_df[column] = pd.to_datetime(hours_df[column])
 
-# Sidebar
-min_date = all_df["dteday"].min()
-max_date = all_df["dteday"].max()
-
-def filter_data(df, start_date, end_date):
-    return df[(df["dteday"] >= str(start_date)) & (df["dteday"] <= str(end_date))]
-
+# Membuat sidebar
 with st.sidebar:
-    st.image("https://github.com/dicodingacademy/assets/raw/main/logo.png")
+    # Menambahkan logo perusahaan
+    st.image("logo.png")
+    
+    # Mengambil start_date & end_date dari date_input
     start_date, end_date = st.date_input(
-        label='Rentang Waktu',
-        min_value=min_date,
-        max_value=max_date,
-        value=[min_date, max_date]
-    )
+        label='Time Range',
+        min_value=days_df["dteday"].min(),
+        max_value=days_df["dteday"].max(),
+        value=[days_df["dteday"].min(), days_df["dteday"].max()])
+  
+main_df_days = days_df[(days_df["dteday"] >= str(start_date)) & (days_df["dteday"] <= str(end_date))]
+main_df_hour = hours_df[(hours_df["dteday"] >= str(start_date)) &  (hours_df["dteday"] <= str(end_date))]
 
-# Filter data based on selected date range
-main_df = filter_data(all_df, start_date, end_date)
+rentals_per_month = create_rentals_per_month(main_df_days)
+rentals_per_season = create_rentals_by_season(main_df_days)
+rentals_by_hour = create_rentals_by_hour(main_df_hour)
+rentals_per_weather = create_rentals_per_weather(main_df_hour)
 
 # Set header and subheader
-st.header('Dicoding Bike Rental :sparkles:')
-
-# Exploratory Data Analysis (EDA) - Daily Rentals
+st.header('Dicoding Bike Sharing :sparkles:')
 st.subheader('Daily Rentals')
 
+# Menampilkan total rentals
 col1, col2, col3 = st.columns(3)
- 
 with col1:
-    # Menghitung total rentals
-    total_rentals = main_df['cnt_y'].sum()
+    total_rentals = main_df_hour['total_count'].sum()
     st.metric("Total Rentals", value=total_rentals)
-
 with col2:
-    total_casual = main_df['casual_y'].sum()
+    total_casual = main_df_hour['casual'].sum()
     st.metric("Casual User", value=total_casual)
- 
 with col3:
-    total_registed = main_df['registered_y'].sum()
+    total_registed = main_df_hour['registered'].sum()
     st.metric("Registered User", value=total_registed)
 
-def plot_daily_rentals(df):
-    daily_rentals = df.groupby(df["dteday"])["cnt_y"].sum()
+# Plot Daily Sharing
+fig, ax = plt.subplots(figsize=(16, 8))
+ax.plot(main_df_days["dteday"], main_df_days["total_count"], marker='o', linewidth=2, color="#90CAF9")
+ax.tick_params(axis='y', labelsize=20)
+ax.tick_params(axis='x', labelsize=15)
+ax.set_xlabel('Date')
+ax.set_ylabel('Number of Rentals')
+ax.set_title('Daily Bike Rentals')
+plt.grid(True)
+plt.tight_layout()
+st.pyplot(fig)
 
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(daily_rentals.index, daily_rentals.values, marker='', linestyle='-')
+st.subheader('Rentals per Month')
 
-    # Label dan judul
-    ax.set_xlabel('Date')
-    ax.set_ylabel('Number of Rentals')
-    ax.set_title('Daily Bike Rentals')
+# Plot rentals per month
+plt.figure(figsize=(10, 5))
+sns.lineplot(data=rentals_per_month, x='month', y='total_count', hue='year', marker='o')
+plt.xlabel('Month')
+plt.ylabel('Number of Rentals')
+plt.title('Bike Rentals per Month (2011 vs 2012)')
+plt.legend(title='Year')
+plt.grid(True)
+plt.tight_layout()
+st.pyplot(plt)
 
-    # Tampilkan plot
-    plt.grid(True)
-    plt.tight_layout()
-    st.pyplot(fig)
+st.subheader('Rentals by Season')
 
-plot_daily_rentals(main_df)
+# Plot rentals by season
+palette = sns.color_palette("husl", len(rentals_per_season['year'].unique()))
+season_order = ['Spring', 'Summer', 'Fall', 'Winter']
+plt.figure(figsize=(10, 5))
+sns.barplot(data=rentals_per_season, x='season', y='total_count', hue='year', palette=palette, order=season_order)
+plt.xlabel('Season')
+plt.ylabel('Number of Rentals')
+plt.title('Bike Rentals per Season (2011 vs 2012)')
+plt.legend(title='Year')
+plt.grid(axis='y')
+plt.tight_layout()
+st.pyplot(plt)
 
-st.subheader('Rentals per user type')
-def plot_rentals_per_user_type(df):
-    # Check if the selected date range is within a single year
-    single_year = start_date.year == end_date.year
+st.subheader('Rentals by Part of the Day')
 
-    # Group rentals per user type and year
-    rentals_per_user_type = df.groupby([df["yr_y"], df["yr_y"] * single_year]).agg({"casual_y": "sum", "registered_y": "sum"})
+# Plot rentals per part of the day
+hour_order = ['Morning', 'Afternoon', 'Evening', 'Night']
+plt.figure(figsize=(10, 5))
+sns.barplot(data=rentals_by_hour, color="#90CAF9", order=hour_order)
+plt.xlabel('Part of the day')
+plt.ylabel('Number of Rentals')
+plt.title('Bike Rentals by Part of the day')
+plt.grid(axis='y')
+plt.tight_layout()
+st.pyplot(plt)
 
-    # Visualization & Explanatory Analysis - Pertanyaan 5
-    fig, ax = plt.subplots()
+st.subheader('Rentals by Weather')
 
-    if single_year:
-        # If the selected date range is within a single year, plot only for that year
-        plt.bar(["2011"], rentals_per_user_type.loc[0, "casual_y"], label="Casual Users")
-        plt.bar(["2011"], rentals_per_user_type.loc[0, "registered_y"], bottom=rentals_per_user_type.loc[0, "casual_y"], label="Registered Users")
-    else:
-        # Plot for both years
-        plt.bar(["2011", "2012"], rentals_per_user_type["casual_y"], label="Casual Users")
-        plt.bar(["2011", "2012"], rentals_per_user_type["registered_y"], bottom=rentals_per_user_type["casual_y"], label="Registered Users")
+# Plot rentals by weather
+weather_order = ['Clear', 'Misty', 'Light_RainSnow', 'Heavy_RainSnow']
+plt.figure(figsize=(10, 6))
+sns.barplot(data=rentals_per_weather, color='skyblue', order=weather_order)
+plt.xlabel('Weather Situation')
+plt.ylabel('Number of Rentals')
+plt.title('Rentals per Weather Situation')
+plt.grid(axis='y')
+plt.tight_layout()
+st.pyplot(plt)
 
-    plt.title("Total Rentals per Year and User Type")
-    plt.xlabel("Year")
-    plt.ylabel("Total Rentals")
-    plt.legend()
-    ax.yaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.0f}"))  # Penyesuaian formatter sumbu y-axis
-    st.pyplot(fig)
+st.subheader('Rentals by User Type')
 
-plot_rentals_per_user_type(main_df)
+# Plot rentals by user type
+user_type_totals = main_df_days.groupby('year', observed=False)[['casual', 'registered']].sum()
+combined_data = user_type_totals.T.sum(axis=1)
 
-st.subheader('Rentals per year')
-def plot_rentals_per_year(df):
-    rentals_per_month = df.groupby(['yr_y', 'mnth_y'])['cnt_y'].sum()
-
-    # Ubah indeks bulan menjadi nama bulan
-    rentals_per_month.index = rentals_per_month.index.set_levels(
-        [['2011', '2012'], 
-         ['January', 'February', 'March', 'April', 'May', 'June', 
-          'July', 'August', 'September', 'October', 'November', 'December']],
-        level=[0, 1]
-    )
-
-    months = ['January', 'February', 'March', 'April', 'May', 'June', 
-              'July', 'August', 'September', 'October', 'November', 'December']
-
-    # Jumlah peminjaman sepeda per bulan untuk tahun 2011 dan 2012
-    rentals_2011 = rentals_per_month['2011']
-    rentals_2012 = rentals_per_month['2012']
-
-    # Buat plot
-    fig, ax = plt.subplots(figsize=(10, 5))
-
-    ax.plot(months, rentals_2011, marker='o', label='2011')
-    ax.plot(months, rentals_2012, marker='o', label='2012')
-
-    # Label dan judul
-    ax.set_xlabel('Month')
-    ax.set_ylabel('Number of Rentals')
-    ax.set_title('Bike Rentals per Month (2011 vs 2012)')
-    plt.xticks(rotation=45)
-
-    # Tampilkan legenda
-    plt.legend()
-
-    # Tampilkan plot
-    plt.grid(True)
-    plt.tight_layout()
-    st.pyplot(fig)
-
-plot_rentals_per_year(all_df)
-
-st.subheader('Rentals by season')
-def plot_rentals_per_season_per_year(df):
-    seasons = ['Spring', 'Summer', 'Fall', 'Winter']
-
-    # Filter data for each year and season, fill missing values with 0
-    rentals_per_season_2011 = df[df["yr_y"] == 0].groupby(df["season_y"])["cnt_y"].sum().reindex(index=[1, 2, 3, 4], fill_value=0)
-    rentals_per_season_2012 = df[df["yr_y"] == 1].groupby(df["season_y"])["cnt_y"].sum().reindex(index=[1, 2, 3, 4], fill_value=0)
-
-    # Buat plot
-    plt.figure(figsize=(10, 5))
-
-    plt.bar(seasons, rentals_per_season_2011, color='blue', width=0.4, align='center', label='2011')
-    plt.bar(seasons, rentals_per_season_2012, color='orange', width=0.4, align='edge', label='2012')
-
-    # Label dan judul
-    plt.xlabel('Season')
-    plt.ylabel('Number of Rentals')
-    plt.title('Bike Rentals per Season (2011 vs 2012)')
-    plt.legend()
-
-    # Tampilkan plot
-    plt.grid(True)
-    plt.tight_layout()
-    st.pyplot(plt.gcf())
-
-plot_rentals_per_season_per_year(main_df)
-
-st.subheader('Rentals by parts of the day')
-def plot_rentals_per_hour_group(df):
-    def categorize_hour(hour):
-        if 5 <= hour < 12:
-            return 'Morning'
-        elif 12 <= hour < 17:
-            return 'Afternoon'
-        elif 17 <= hour < 22:
-            return 'Evening'
-        else:
-            return 'Night'
-
-    df['hour_group'] = df['hr'].apply(categorize_hour)
-    rentals_per_hour_group = df.groupby('hour_group')['cnt_y'].sum()
-
-    # Visualization & Explanatory Analysis - Pertanyaan 3
-    fig, ax = plt.subplots()
-    sns.barplot(x=rentals_per_hour_group.index, y=rentals_per_hour_group.values, ax=ax)
-    plt.title("Total Rentals per Hour Group")
-    plt.xlabel("Hour Group")
-    plt.ylabel("Total Rentals")
-    ax.yaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.0f}"))  # Penyesuaian formatter sumbu y-axis
-    st.pyplot(fig)
-
-plot_rentals_per_hour_group(main_df)
-
-st.subheader('Rentals by weather')
-def plot_rentals_per_weather(df):
-    # Rename weather index
-    df["weathersit_y"] = df["weathersit_y"].replace({1: 'Clear', 2: 'Mist', 3: 'Light Snow/Rain', 4: 'Heavy Rain/Snow'})
-
-    rentals_per_weather = df.groupby(df["weathersit_y"])["cnt_y"].sum()
-
-    # Visualization & Explanatory Analysis - Pertanyaan 4
-    fig, ax = plt.subplots()
-    sns.barplot(x=rentals_per_weather.index, y=rentals_per_weather.values, ax=ax)
-    plt.title("Total Rentals per Weather Situation")
-    plt.xlabel("Weather Situation")
-    plt.ylabel("Total Rentals")
-    ax.yaxis.set_major_formatter(ticker.StrMethodFormatter("{x:.0f}"))  # Penyesuaian formatter sumbu y-axis
-    st.pyplot(fig)
-
-plot_rentals_per_weather(main_df)
-
+plt.figure(figsize=(10, 5))
+plt.pie(combined_data, labels=combined_data.index, autopct='%1.1f%%', colors=["#D3D3D3", "#72BCD4"])
+plt.title('Distribution of Users')
+plt.axis('equal') 
+plt.tight_layout()
+st.pyplot(plt)
