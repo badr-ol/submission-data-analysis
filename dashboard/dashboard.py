@@ -45,7 +45,7 @@ for column in datetime_columns:
 # Membuat sidebar
 with st.sidebar:
     # Menambahkan logo perusahaan
-    st.image("https://github.com/badr-ol/submission-data-analysis/blob/main/dashboard/logo.png")
+    st.image("https://github.com/badr-ol/submission-data-analysis/blob/main/dashboard/logo.png?raw=true")
     
     # Mengambil start_date & end_date dari date_input
     start_date, end_date = st.date_input(
