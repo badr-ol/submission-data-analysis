@@ -29,4 +29,4 @@ pip install -r requirements.txt
 cd dashboard
 streamlit run dashboard.py
 ```
-<p>6. And Viola! streamlit will open a new tab in your browser</p>
+<p>6. And Voila! streamlit will open a new tab in your browser</p>
